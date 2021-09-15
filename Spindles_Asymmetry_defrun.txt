@@ -1,0 +1,926 @@
+close all
+clear all
+
+
+% driver to process an EEG dataset --> to do!!
+
+[FN, PN]  = uigetfile('/Volumes/NO NAME/EEG_hemiplegia/SLEEP_edf_raw_side/*.edf', 'select .EDF file to extract subject DATA', 'multiselect', 'on');   
+ for K = 1 : size(FN,2)
+    entirefile =fullfile(PN,FN{K}) %
+    fid1 = fopen(entirefile);
+    % your code
+
+[Path, FileName, extension] = fileparts(entirefile);
+EEG         = pop_biosig(strcat(PN, FN{K}), 'importevent', 'off');
+EEG.setname = FN{K};
+EEG         = eeg_checkset(EEG);
+
+if size(EEG.data,2)>EEG.srate*300;
+    
+for i = 12:size(EEG.chanlocs, 1)
+    EEG.chanlocs(i).labels = EEG.chanlocs(i).labels(5:end);
+end
+
+EEG         = pop_chanedit(EEG, 'lookup', 'standard-10-5-cap385.elp');
+% 
+% % % Micromed Files
+% EEG         = pop_select(EEG, 'channel', {'Fp1';'Fp2';'Fz';'T3';'C3';'Cz';'C4';'T4';'Pz';'O1';'O2'}); %;'EEG Fp1';'EEG Fp2';'EEG Fz';'EEG T3';'EEG C3';'EEG Cz';'EEG C4';'EEG T4';'EEG Pz';'EEG O1';'EEG O2'});
+% EEG         = pop_select(EEG, 'channel', {'Fp1'|'EEG Fp1')}) %%;('Fp2'|'EEG Fp2');('Fz'|'EEG Fz');('T3'|'EEG T3');('C3'|'EEG C3');('Cz'|'EEG Cz');('C4'|'EEG C4');('T4'|'EEG T4');('Pz'|'EEG Pz');('O1'|'EEG O1');('O2'|'EEG O2')});
+ EEG         = pop_select(EEG, 'channel', {'EEG Fp1';'EEG Fp2';'EEG Fz';'EEG T3';'EEG C3';'EEG Cz';'C4';'T4';'Pz';'O1';'O2'});
+% % EEG = pop_select(EEG, 'channel', {'EEG Fp1';'EEG Fp2';'EEG Fz';'EEG T3';'EEG C3';'EEG Cz';'EEG C4';'EEG T4';'EEG Pz';'EEG O1';'EEG O2'});
+EEG.bipo.FC_SX=double(EEG.data(1,:)-EEG.data(5,:));
+EEG.bipo.FT_SX=double(EEG.data(1,:)-EEG.data(4,:));
+EEG.bipo.CT_SX=double(EEG.data(5,:)-EEG.data(4,:));
+EEG.bipo.CO_SX=double(EEG.data(5,:)-EEG.data(10,:));
+EEG.bipo.TO_SX=double(EEG.data(4,:)-EEG.data(10,:));
+EEG.bipo.FC_DX=double(EEG.data(2,:)-EEG.data(7,:));
+EEG.bipo.FT_DX=double(EEG.data(2,:)-EEG.data(8,:));
+EEG.bipo.CT_DX=double(EEG.data(7,:)-EEG.data(8,:));
+EEG.bipo.CO_DX=double(EEG.data(7,:)-EEG.data(11,:));
+EEG.bipo.TO_DX=double(EEG.data(8,:)-EEG.data(11,:));
+EEG.bipo.Fz_Cz=double(EEG.data(3,:)-EEG.data(6,:));
+EEG.bipo.Cz_Pz=double(EEG.data(6,:)-EEG.data(9,:));
+% % 
+% % % NicOne Files
+% EEG         = pop_select(EEG, 'channel', {'EEG Fp1-REF';'EEG Fp2-REF';'Fz-REF';'T3-REF';'EEG C3-REF';'Cz-REF';'EEG C4-REF';'T4-REF';'Pz-REF';'EEG O1-REF';'EEG O2-REF'})
+% EEG.bipo.FC_SX=double(EEG.data(1,:)-EEG.data(3,:));
+% EEG.bipo.FT_SX=double(EEG.data(1,:)-EEG.data(7,:));
+% EEG.bipo.CT_SX=double(EEG.data(3,:)-EEG.data(7,:));
+% EEG.bipo.CO_SX=double(EEG.data(3,:)-EEG.data(5,:));
+% EEG.bipo.TO_SX=double(EEG.data(7,:)-EEG.data(5,:));
+% EEG.bipo.FC_DX=double(EEG.data(2,:)-EEG.data(4,:));
+% EEG.bipo.FT_DX=double(EEG.data(2,:)-EEG.data(8,:));
+% EEG.bipo.CT_DX=double(EEG.data(4,:)-EEG.data(8,:));
+% EEG.bipo.CO_DX=double(EEG.data(4,:)-EEG.data(6,:));
+% EEG.bipo.TO_DX=double(EEG.data(8,:)-EEG.data(6,:));
+% EEG.bipo.Fz_Cz=double(EEG.data(9,:)-EEG.data(10,:));
+% EEG.bipo.Cz_Pz=double(EEG.data(10,:)-EEG.data(11,:));
+
+
+EEG.signal = cell2mat(cellfun(@double,struct2cell(EEG.bipo),'UniformOutput',false));
+EEG.derivations=fieldnames(EEG.bipo);
+colHeadings={'labels'};
+EEG.derivations=cell2struct( EEG.derivations (:,1), colHeadings, 2);
+
+sensors = 1:size(EEG.signal, 1); % ID of channels to be filtered   
+channels = size(sensors, 2)
+EEG.chanlocations= struct2table(EEG.chanlocs);
+
+% Micromed and NicOne files
+EEG.locs(1,:)=EEG.chanlocations(1,:);
+EEG.locs(2,:)=EEG.chanlocations(5,:);
+EEG.locs(3,:)=EEG.chanlocations(4,:);
+EEG.locs(4,:)=EEG.chanlocations(10,:);
+EEG.locs(5,:)=EEG.chanlocations(2,:);
+EEG.locs(6,:)=EEG.chanlocations(7,:);
+EEG.locs(7,:)=EEG.chanlocations(8,:);
+EEG.locs(8,:)=EEG.chanlocations(11,:);
+EEG.locs(9,:)=EEG.chanlocations(3,:);
+EEG.locs(10,:)=EEG.chanlocations(6,:);
+EEG.locs(11,:)=EEG.chanlocations(9,:);
+
+EEG.locs=table2struct(EEG.locs)
+
+clear EEG.chanlocations
+
+    % Bandpass filter
+% Filter EEG data imported from EDF
+
+sensors = 1:size(EEG.signal, 1); % ID of channels to be filtered
+
+% Notch filter 50Hz EEG
+
+wo     = 50/(EEG.srate/2);
+bw     = wo/50;
+[b, a] = iirnotch(wo, bw);
+h = waitbar(0, 'EEG Performing IIR notch filter...');
+for i = 1:size(sensors, 2)
+    EEG.signal(sensors(i), :) = filtfilt(b, a, double(EEG.signal(sensors(i), :)));
+    waitbar(i/size(sensors,2))
+end
+close(h)
+clear b a h
+
+% Bandpass filter EEG
+
+lp = 30;
+hp = 0.5;
+
+w2 = 2*lp/EEG.srate;
+w  = w2;
+[B, A] = butter(4, w, 'low');
+w2 = 2*hp/EEG.srate;
+w  = w2;
+[C, D] = butter(4, w, 'high');
+
+h = waitbar(0,['EEG Performing ', num2str(hp), '-', num2str(lp), ' Bandpass Filter...']);
+
+for kk = 1:size(sensors, 2)
+    waitbar(kk/size(sensors, 2))
+    EEG.signal(sensors(kk), :) = filtfilt(C, D, filtfilt(B, A, double(EEG.signal(sensors(kk), :))));
+end
+close(h)
+clear w w2 A B C D kk a h  
+
+%
+% Spindles filter
+
+Wp = [11 15]/(EEG.srate/2); % to change in relation to the definition of spindles
+Ws = [10 16]/(EEG.srate/2);
+Rp = 3;
+Rs = 60;
+ftype = 'bandpass'
+
+[n,Ws] = cheb2ord(Wp,Ws,Rp,Rs)
+    
+[z,p,k] = cheby2(n,Rs,Ws,ftype);
+sos = zp2sos(z,p,k);
+
+h = waitbar(0,['EEG Performing spindle Filter...']);
+
+for kk = 1:size(sensors, 2)
+    EEG.spindles(sensors(kk), :) = sosfilt(sos,EEG.signal(sensors(kk), :));
+end
+
+% % Plot EEG
+% eegplot(EEG.spindles, 'srate', EEG.srate, 'winlength', 30,'eloc_file', EEG.derivations)
+
+for kk = 1:size(sensors, 2)
+    h=waitbar(kk/size(sensors, 2))
+    EEG.x(sensors(kk), :) = (hilbert(EEG.spindles(sensors(kk), :)));
+end
+close (h)
+
+EEG.mag=abs(EEG.x);
+
+% set spindle tresholds
+for kk = 1:size(sensors, 2);
+    M(sensors(kk),:) = mean(EEG.mag(sensors(kk),:));
+    SD(sensors(kk),:) = std(EEG.mag(sensors(kk),:));
+
+    SD3=3*(SD);
+    SD6=6*(SD);
+    M3=3*M;
+    M6=6*M;
+    MSD=M+SD;
+    M3SD=M+SD3;
+end
+
+for kk = 1:size(sensors, 2);
+    for km = 1:size(EEG.mag,2); 
+        if (EEG.mag(kk,km) >= M(kk,:))  && (EEG.mag(kk,km) < M3(kk,:));   % to change in relation to the method adopted 
+            EEG.on(kk,km)=1;
+        
+        elseif (EEG.mag(kk,km) >= M3(kk,:));
+            EEG.on(kk,km)=3;
+        
+        else EEG.on(kk,km)=0;
+        
+        end 
+   
+    end
+end 
+    
+EEG.on2 = EEG.on; 
+EEG.on2(EEG.on<2)=NaN;
+
+s = diff(EEG.on, 1, 2); % define spindle epoch - if M<MAG<M3 --> -1; if M3<MAG --> -2
+
+% extract epochs
+for kk = 1:size(sensors, 2)
+       en = find(s(kk,:) == -1);
+       EN2 = find(s(kk,:) == -2);
+       st = find(s(kk,:) == 1); 
+       ST2 = find(s(kk,:) == 2); 
+
+       dd=(EN2-ST2');
+       dd(dd<0)=nan;
+       [minDD, DD]=min(dd,[],2);
+       for y=1:size(minDD,1)
+           if isnan(minDD(y))
+               DD(y)=NaN;
+           end  
+       end
+       
+      ind1=isnan(DD); DD(ind1)=[];
+       en2 = unique(EN2(DD));
+       st2 = unique(ST2(DD));
+
+       d=(st2-st');
+       d(d<0)=nan;
+       [minST,closestInST] = nanmin(d);
+        for y=1:size(minST,2)
+           if isnan(minST(y))
+               closestInST(y)=NaN;
+           end  
+        end
+   
+       c=(en2-en');
+       c(c>0)=nan;
+       [minEN,closestInEN] = max(c);
+       for y=1:size(minEN,2)
+           if isnan(minEN(y))
+               closestInEN(y)=NaN;
+           end  
+       end
+       
+    ind1=isnan(closestInEN); closestInEN(ind1)=[]; closestInST(ind1)=[];
+    ind2=isnan(closestInST); closestInST(ind2)=[]; closestInEN(ind2)=[];
+    closestST=st(closestInST); 
+    closestEN=en(closestInEN); 
+       
+       for f=1:size(closestST,2)
+       FF=(closestEN(f)-closestST(f));
+       if FF<EEG.srate*0.3
+           closestST(f)=nan;
+           closestEN(f)=nan;
+%        elseif FF>EEG.srate*100
+%            closestST(f)=nan;
+%            closestEN(f)=nan;
+       end
+       end
+       ind1=isnan(closestEN); closestEN(ind1)=[];
+       ind2=isnan(closestST); closestST(ind2)=[];
+       
+       for h=1:(size(closestST,2)-1)
+           i=h+1
+       HH=(closestST(i)-closestEN(h));
+       if HH<EEG.srate
+           closestST(i)=nan;
+           closestEN(h)=nan;
+       end
+       end
+       ind3=isnan(closestEN); closestEN(ind3)=[];
+       ind4=isnan(closestST); closestST(ind4)=[];
+        
+       for f=1:size(closestST,2)
+       FF=(closestEN(f)-closestST(f));
+       if FF<EEG.srate*0.5
+           closestST(f)=nan;
+           closestEN(f)=nan;
+       elseif FF>EEG.srate*10
+           closestST(f)=nan;
+           closestEN(f)=nan;
+       end
+       end
+       ind5=isnan(closestEN); closestEN(ind5)=[];
+       ind6=isnan(closestST); closestST(ind6)=[];
+
+  clear ind1 ind2 ind3 ind4 ind5 ind6
+         
+       numEpochs = size(closestST,2);
+       
+      for e = 1:(numEpochs)
+       OUTPUT.start{kk,e}=(closestST(e));
+       OUTPUT.end{kk,e}=(closestEN(e));
+       A=closestST(e)-EEG.srate;
+       if A<1 
+          A(e)=closestST(e);
+       else
+           A(e)=A;
+       end
+       B=closestEN(e)+EEG.srate;
+       if B>size(EEG.signal,2) 
+           B(e)=closestEN(e);
+       elseif B==1 
+           B(e)=[];
+       else
+           B(e)=B;
+       end
+
+       OUTPUT.signal{kk,e}= EEG.signal(kk,(A(e):B(e)));
+       OUTPUT.spindles{kk,e}= EEG.spindles(kk,(A(e):B(e)));
+       OUTPUT.mag{kk,e}= EEG.mag(kk,(A(e):B(e)));
+      end
+      
+end
+%
+
+fx=@(x)any(isempty(x));
+inds=cellfun(fx,OUTPUT.start);
+OUTPUT.start(inds)={nan};
+inde=cellfun(fx,OUTPUT.end);
+OUTPUT.end(inde)={nan};
+OUTPUT.start=cell2mat(OUTPUT.start);
+OUTPUT.end=cell2mat(OUTPUT.end);
+fx=@(x)any(isempty(x));
+indsi=cellfun(fx,OUTPUT.signal);
+OUTPUT.signal(indsi)={nan};
+indsp=cellfun(fx,OUTPUT.spindles);
+OUTPUT.spindles(indsp)={nan};
+indma=cellfun(fx,OUTPUT.mag);
+OUTPUT.mag(indma)={nan};
+clear indma indsp indsi inde fx fxOUTPUT 
+
+% plot spindles epoch in the different channels
+
+for kk = 1:size(sensors, 2) 
+    nepoch = size(OUTPUT.start(~isnan(OUTPUT.start(kk,:))),2);
+    if nepoch==0
+    plot(EEG.times,(EEG.mag(kk,:))-(kk*100),'Color','c') 
+    else 
+        for ww = 1:nepoch
+        x=EEG.times(OUTPUT.start(kk,ww):OUTPUT.end(kk,ww));
+        plot(x,(EEG.spindles(OUTPUT.start(kk,ww):OUTPUT.end(kk,ww))-(kk*100)),'Color','r')
+        xlim([1 size(EEG.data,2)])
+        hold on
+        end
+        plot(EEG.times,(EEG.mag(kk,:))-(kk*100),'Color','c')
+    end
+   hold on
+end
+ hold off
+%
+saveas(gcf,[PN sprintf('spindles_extraction%s',FileName)],'tiff')
+
+close all
+%
+% mean spindle length (length of spindles) --> to change according to different combos
+
+length={}
+for kk = 1:size(sensors, 2);
+    numepoch = size(OUTPUT.start(~isnan(OUTPUT.start(kk,:))),2);
+    for e = 1:numepoch;
+    length{kk,e}=(OUTPUT.end(kk,e)-OUTPUT.start(kk,e));
+    end
+    clear numepoch
+end
+%
+fx=@(x)any(isempty(x));
+inds=cellfun(fx,length);
+length(inds)={nan};
+SPINDLE.plot=length;
+SPINDLE.plot=cell2mat(SPINDLE.plot)
+SPINDLE.plot=SPINDLE.plot.'
+
+% spindle number (n° of spindles for every derivation)
+for kk = 1:size(sensors, 2)
+numepoch(kk,:)=size(OUTPUT.start(~isnan(OUTPUT.start(kk,:))),2);
+SPINDLE.number(kk,1)=numepoch(kk,:);
+end
+clear numepoch
+
+% spindle density LENGTH--> (length of spindles/min) --> to change according different combos
+
+SPINDLE.plot=SPINDLE.plot.';
+SPINDLE.mean=nanmean(SPINDLE.plot,2);
+SPINDLE.sum=nansum(SPINDLE.plot,2);
+
+SPINDLE.densitylen=(SPINDLE.sum/size(EEG.signal,2))*100;
+SPINDLE.densitynum=(SPINDLE.number/(size(EEG.signal,2)/EEG.srate))*100;
+
+A=SPINDLE.densitynum(1:5,:) 
+B=SPINDLE.densitynum(6:10,:)
+E=[A,B]
+C=SPINDLE.densitylen(1:5,:)
+D=SPINDLE.densitylen(6:10,:)
+F=[C,D]
+G=SPINDLE.mean(1:5,:) 
+H=SPINDLE.mean(6:10,:);
+I=[G,H];
+
+clear A B C D
+subplot(3,1,1)
+bar1=barh(E)
+title('number of spindles')
+
+subplot(3,1,2)
+bar2=barh(F)
+title('spindle density')
+
+subplot(3,1,3)
+bar2=barh(I)
+title('mean length of spindles')
+
+clear E F G H I 
+ 
+% spindle magnitude --> max and mean
+
+SPINDLE.MagMAx={};
+SPINDLE.MagMEan={}
+
+ for kk = 1:size(sensors, 2);
+        numepoch = size(OUTPUT.start(~isnan(OUTPUT.start(kk,:))),2);
+        for e = 1:numepoch;   
+            SPINDLE.MagMAx{kk,e}= nanmax(abs(OUTPUT.mag{kk,e}));
+            SPINDLE.MagMEan{kk,e}= nanmean(abs(OUTPUT.mag{kk,e}));
+        end
+ end
+
+fx=@(x)any(isempty(x));
+inds=cellfun(fx,SPINDLE.MagMAx);
+inds=cellfun(fx,SPINDLE.MagMEan);
+SPINDLE.MagMAx(inds)={nan};
+SPINDLE.MagMEan(inds)={nan};
+SPINDLE.MagMAx=cell2mat(SPINDLE.MagMAx);
+SPINDLE.MagMEan=cell2mat(SPINDLE.MagMEan);
+
+SPINDLE.MagMAx=nanmean(double(SPINDLE.MagMAx),2);
+SPINDLE.MagMEan=nanmean(double(SPINDLE.MagMEan),2);
+
+% spectral analysis on spindles - time/frequency specgram
+
+    Nw = EEG.srate;
+    sr = EEG.srate;
+    Overlap = 200;
+    nfft = 4096;
+    Freqmaxspind={};
+    for kk = 1:size(sensors, 2)
+        numepoch = size(OUTPUT.start(~isnan(OUTPUT.start(kk,:))),2);
+        for ww = 1:numepoch    
+        d=OUTPUT.spindles{kk,ww};
+        if ~isnan(d)
+        [Pxx1, F1] = specgram(d,Nw,sr,hamming(Nw),Overlap);
+        
+        Pxx1 = Pxx1(10:16,:);
+        F1 = F1(10:16,:);
+        PxxMAx = max(abs(Pxx1),[], 2);
+        Freq = cat(2, F1, PxxMAx);
+        FreqMax = max(Freq(:,2),[], 1);
+        ind1 = Freq(:,2) == FreqMax;
+        Freqmaxspind{kk,ww} =  Freq(ind1,1);
+        Freqepoch{kk,ww}=Pxx1;
+        else 
+        Freqmaxspind{kk,ww} = nan;
+        Freqepoch{kk,ww}=nan;
+        clear d Pxx1 F1 PxxMAx ind1  
+        end
+        end
+    end
+
+fx=@(x)any(isempty(x));
+inds=cellfun(fx,Freqmaxspind);
+Freqmaxspind(inds)={nan};
+Freqmaxspind=cell2mat(Freqmaxspind);
+Freqmaxspind=double(Freqmaxspind);
+clear inds
+
+FreqMaxSpindMean=nanmean(Freqmaxspind,2)
+FreqMaxSpindSD=nanstd(Freqmaxspind,0,2)
+
+% spindle spectral analysis - global signal
+
+TOTspectra =[]
+fs=EEG.srate;% sampling frequency (Hz)
+N_win1     = EEG.srate;
+N_overlap1 = N_win1/2;
+N_fft1     = 4096;
+    for kk = 1:size(sensors, 2)
+            d=EEG.spindles(kk,:);
+            [PxxT, FT] = pwelch(d, hamming(N_win1), N_overlap1, N_fft1, EEG.srate, 'power');
+            ind1 = FT(:,1) >=10; [ind1, col] = find(ind1,1,'first');
+            ind2 = FT(:,1) >=16; [ind2, col] = find(ind2,1,'first');
+            FT = FT(ind1:ind2,1);
+            PxxT = PxxT(ind1:ind2,:);
+            TOTspectra(kk,:) = PxxT;
+            clear ind1 ind2
+            
+    end
+    
+    POWER=[]
+    
+for kk=1:size(sensors, 2)
+     ind1 = FT(:,1) >= 11; [ind1, col] = find(ind1,1,'first');
+     ind2 = FT(:,1) >= 13; [ind2, col] = find(ind2,1,'first');
+     ind3 = FT(:,1) >= 15; [ind3, col] = find(ind3,1,'first');
+
+     SPINDLE.POWER(kk,:)=10*log10(trapz(TOTspectra(kk,(ind1:ind3))));
+     SPINDLE.SLOWPOWER(kk,:)=10*log10(trapz(TOTspectra(kk,(ind1:ind2))));
+     SPINDLE.FASTPOWER(kk,:)=10*log10(trapz(TOTspectra(kk,(ind2:ind3))));
+end
+
+
+% spectral analysis on spindles - epoch spectra
+
+FreqmaxEpoch={}
+fs=EEG.srate;% sampling frequency (Hz)
+N_win1     = EEG.srate;
+N_overlap1 = N_win1/2;
+N_fft1     = 4096;
+    
+    for kk = 1:size(sensors, 2)
+        numepoch = size(OUTPUT.start(~isnan(OUTPUT.start(kk,:))),2);
+         if numepoch==0
+            SPINDLE.EPOCHPOWER(kk,ww)=nan;
+            SPINDLE.EPOCHSLOWPOWER(kk,ww)=nan;
+            SPINDLE.EPOCHFASTPOWER(kk,ww)=nan;
+         else
+            for ww = 1:numepoch 
+            d=OUTPUT.spindles(kk,ww);
+            [Pxx1, F1] = pwelch(d, hamming(N_win1), N_overlap1, N_fft1, fs, 'power');
+            ind1 = F1(:,1) >= 10; [ind1 , col] = find(ind1,1,'first');
+            ind2 = F1(:,1) >= 16; [ind2 , col] = find(ind2,1,'first');
+            F1 = F1(ind1:ind2,1);
+            Pxx1 = Pxx1(ind1:ind2,1);
+            PxxMAx = max(abs(Pxx1),[], 1);
+            ind3 = Pxx1(:,1) == PxxMAx; [ind3 , ~] = find(ind3);
+            FreqmaxEpoch{kk,ww} =  F1(ind3,1);
+            Freqepoch{kk,ww}=Pxx1;
+            clear ind1 ind2 ind3 
+       
+            ind1 = F1(:,1) >= 11; [ind1, col] = find(ind1,1,'first');
+            ind2 = F1(:,1) >= 13; [ind2, col] = find(ind2,1,'first');
+            ind3 = F1(:,1) >= 15; [ind3, col] = find(ind3,1,'first');
+            SPINDLE.EPOCHPOWER(kk,ww)=10*log10(trapz(Pxx1(ind1:ind3)));
+            SPINDLE.EPOCHSLOWPOWER(kk,ww)=10*log10(trapz(Pxx1(ind1:ind2)));
+            SPINDLE.EPOCHFASTPOWER(kk,ww)=10*log10(trapz(Pxx1(ind2:ind3)));
+            end
+        SPINDLE.M_EPOCHPOWER(kk,:)=nanmean(SPINDLE.EPOCHPOWER(kk,:));
+        SPINDLE.M_EPOCHSLOWPOWER(kk,:)=nanmean(SPINDLE.EPOCHSLOWPOWER(kk,:));
+        SPINDLE.M_EPOCHFASTPOWER(kk,:)=nanmean(SPINDLE.EPOCHFASTPOWER(kk,:));
+        end
+    end
+    
+
+    
+fx=@(x)any(isempty(x));
+inds=cellfun(fx,FreqmaxEpoch);
+FreqmaxEpoch(inds)={nan};
+FreqmaxEpoch=double(cell2mat(FreqmaxEpoch));
+clear inds
+
+for kk = 1:10
+    A=EEG.derivations(kk,:);
+    numepoch = size(OUTPUT.start(~isnan(OUTPUT.start(kk,:))),2);
+    if numepoch ==0
+   	mA=size(F1,1);
+    mB(:,kk)=nan(mA,1); 
+    else    
+    for ww=1:numepoch
+        BB(:,ww) = cell2mat(Freqepoch(kk,ww));
+        if isempty(BB)
+        mA=size(F1,1);
+        BB(:,ww)=nan(mA,1);
+        end
+    mB(:,kk)=nanmean(BB,2);
+    end
+    end
+    
+end
+
+mb=mB(:,1:5)
+mbb=mB(:,6:10)
+
+for kk = 1:5
+A=EEG.derivations(kk,:);
+subplot(1,5,kk)
+plot(FT, mb(:,kk));
+hold on
+plot(FT,mbb(:,kk), 'r');
+set(gca,'ylim',[0 80])
+set(gca,'xlim',[10 16])
+title(A.labels)
+end 
+legend('left', 'right')
+  
+saveas(gcf,[PN sprintf('spindlespower%s',FileName)],'tiff') 
+
+close all
+
+FreqMaxSpindMean=nanmean(Freqmaxspind,2)
+FreqMaxSpindSD=nanstd(Freqmaxspind,0,2)
+
+for kk = 1:size(sensors, 2);
+    for ww= 1:size(FreqmaxEpoch,2);
+        if FreqmaxEpoch(kk,ww)<11; 
+            OUTPUT.spindletype(kk,ww)=NaN;
+        elseif FreqmaxEpoch(kk,ww)>15; 
+            OUTPUT.spindletype(kk,ww)=NaN;
+        elseif FreqmaxEpoch(kk,ww)>=11 && FreqmaxEpoch(kk,ww)<13; 
+            OUTPUT.spindletype(kk,ww)=2;
+        elseif FreqmaxEpoch(kk,ww)>=13 && FreqmaxEpoch(kk,ww)<=15; 
+            OUTPUT.spindletype(kk,ww)=3;
+        elseif isnan(FreqmaxEpoch(kk,ww)); 
+            OUTPUT.spindletype(kk,ww)=NaN;
+        end
+    end
+end
+
+%
+
+for kk = 1:size(sensors, 2)
+       numepoch = size(OUTPUT.spindletype,2);
+        for ww = 1:numepoch 
+            if isnan(OUTPUT.spindletype(kk,ww));
+            map.FreqmaxEpoch(kk,ww) = NaN;
+            map.SLOWFreqmaxEpoch(kk,ww) = NaN;
+            map.FASTFreqmaxEpoch(kk,ww)= NaN;
+            elseif OUTPUT.spindletype(kk,ww)==3; 
+            map.FreqmaxEpoch(kk,ww)=FreqmaxEpoch(kk,ww);
+            map.FASTFreqmaxEpoch(kk,ww)=FreqmaxEpoch(kk,ww);
+            map.SLOWFreqmaxEpoch(kk,ww)= NaN;
+            elseif OUTPUT.spindletype(kk,ww)==2;
+            map.FreqmaxEpoch(kk,ww)=FreqmaxEpoch(kk,ww);
+            map.SLOWFreqmaxEpoch(kk,ww)=FreqmaxEpoch(kk,ww);
+            map.FASTFreqmaxEpoch(kk,ww)= NaN;
+        end
+        end
+end 
+%
+SPINDLE.FreqmaxEpoch=nanmean(map.FreqmaxEpoch,2);
+SPINDLE.SLOWFreqmaxEpoch=nanmean(map.SLOWFreqmaxEpoch,2);
+SPINDLE.FASTFreqmaxEpoch=nanmean(map.FASTFreqmaxEpoch,2);
+
+map.FreqmaxEpoch_box = map.FreqmaxEpoch';
+map.SLOWFreqmaxEpoch_box = map.SLOWFreqmaxEpoch';
+map.FASTFreqmaxEpoch_box = map.FASTFreqmaxEpoch';
+
+%
+for kk = 1:size(sensors, 2);
+    A=EEG.derivations(kk,:);
+    subplot(3,5,kk)
+    h1=histogram(map.SLOWFreqmaxEpoch(kk,:))
+    hold on
+    h2=histogram(map.FASTFreqmaxEpoch(kk,:))
+    h1.BinWidth = 0.25
+    h2.BinWidth = 0.25
+    h1.BinLimits = [10,16]
+    h2.BinLimits = [10,16]
+    h1.FaceColor = 'r';
+    h2.FaceColor = 'c';
+    title(A.labels)
+    hold off
+    set(gca,'ylim',[0 50])
+ 
+end
+
+saveas(gcf,[PN sprintf('fast_slow_spindles_%s',FileName)],'tiff') 
+
+
+% Slow and Fast spindles
+
+for kk = 1:size(sensors, 2);
+    OUTPUT.spindletypeclass(kk,1)=nnz(OUTPUT.spindletype(kk,:)==3)
+    OUTPUT.spindletypeclass(kk,2)=nnz(OUTPUT.spindletype(kk,:)==2)
+    OUTPUT.spindletypeclass(kk,3)=nnz(isnan(OUTPUT.spindletype(kk,:)))  
+end
+
+OUTPUT.spindletypeclass(:,4)=OUTPUT.spindletypeclass(:,1)+OUTPUT.spindletypeclass(:,2); % sum slow and fast spindles
+OUTPUT.spindletypeclass(:,5)=OUTPUT.spindletypeclass(:,1)-OUTPUT.spindletypeclass(:,2); % difference slow and fast spindles
+OUTPUT.spindletypeclass(:,6)=OUTPUT.spindletypeclass(:,1)./OUTPUT.spindletypeclass(:,2); %proportion of fast over slow spindles
+%
+close all
+
+% coherence analysis
+
+fs=EEG.srate;% sampling frequency (Hz)
+N_win1     = 20*EEG.srate;
+noverlap = N_win1/2;
+nfft1     = 2*EEG.srate;
+filt      = hanning(nfft/2)
+f=[10:16]
+x1=EEG.spindles(1,:);
+y1=EEG.spindles(2,:);
+z1=EEG.spindles(4,:);
+w1=EEG.spindles(5,:);
+
+x2=EEG.spindles(6,:);
+y2=EEG.spindles(7,:);
+z2=EEG.spindles(9,:);
+w2=EEG.spindles(10,:);
+
+va2=EEG.spindles(11,:);
+vp2=EEG.spindles(12,:);
+
+[cxy1,ff1] = mscohere(x1,w1,window,noverlap,f,fs)
+[cxy2,ff2] = mscohere(x2,w2,window,noverlap,f,fs)
+
+
+
+Right_coh=mean(cxy2)
+Left_coh=mean(cxy1)
+txt = ['left coh:  ' num2str(Left_coh),'     right coh:  ' num2str(Right_coh)];
+
+close all
+
+plot(ff1,cxy1,ff2,cxy2)
+text(12,0.8,txt)
+legend('left hemi','right hemi')
+set(gca,'ylim',[0 1])
+
+
+saveas(gcf,[PN sprintf('spindle_coherence_%s',FileName)],'tiff')  
+
+close all force
+
+
+% scrive
+A=struct2table(EEG.derivations)
+A=cellstr(A.labels)
+
+% Result = sprintf('output_%s.csv', FileName);
+fid = fopen([PN 'Result.csv'], 'a');
+
+fprintf(fid,'\n');
+fprintf(fid,' ');
+
+       for kk = 1:size(sensors, 2)
+            fprintf(fid,';%s',[ A{kk,1} '_densitylen']);
+       end
+         
+       for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_densitynum']);
+       end
+       
+         for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_MagMax']);
+         end
+         
+         for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_MagMean']);
+         end
+       
+          for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_POWER']);
+          end
+          
+          for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_SLOWPOWER']);
+          end
+         
+          for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_FASTPOWER']);
+          end
+         
+         for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_EPOCHPOWER']);
+         end
+         
+            for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_EPOCHSLOWPOWER']);
+          end
+         
+          for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_EPOCHFASTPOWER']);
+          end
+         
+           for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_FreqmaxEpoch']);
+           end
+          
+           for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_SLOWFreqmaxEpoch']);
+           end
+           
+           for kk = 1:size(sensors, 2);
+            fprintf(fid,';%s',[ A{kk,1} '_FASTreqmaxEpoch']);
+           end
+     
+           fprintf(fid,';%s','Left_Coherence');
+           fprintf(fid,';%s','Right_Coherence');
+
+        fprintf(fid,'\n');
+     fprintf(fid,FileName);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.densitylen)])],SPINDLE.densitylen);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.densitynum)])],SPINDLE.densitynum);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.MagMAx)])],SPINDLE.MagMAx);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.MagMEan)])],SPINDLE.MagMEan);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.POWER)])],SPINDLE.POWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.SLOWPOWER)])],SPINDLE.SLOWPOWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.FASTPOWER)])],SPINDLE.FASTPOWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.M_EPOCHPOWER)])],SPINDLE.M_EPOCHPOWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.M_EPOCHSLOWPOWER)])],SPINDLE.M_EPOCHSLOWPOWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.M_EPOCHFASTPOWER)])],SPINDLE.M_EPOCHFASTPOWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.FreqmaxEpoch)])],SPINDLE.FreqmaxEpoch);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.SLOWFreqmaxEpoch)])],SPINDLE.SLOWFreqmaxEpoch);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.FASTFreqmaxEpoch)])],SPINDLE.FASTFreqmaxEpoch);
+     fprintf(fid,[repmat(';%f',1)],Left_coh);
+     fprintf(fid,[repmat(';%f',1)],Right_coh);
+ fclose(fid);
+ 
+ % Asymmetry 
+% display(FileName)
+% prompt = 'Where is the lesion? input 0 for left or 1 for right hemisphere...' 
+% xx = input(prompt)
+xx = contains(FileName,'RIGHT')
+if xx == 0
+%  left lesion
+% SPINDLE.ASYMM_densitylen=(SPINDLE.densitylen(1:5)./SPINDLE.densitylen(6:10))
+% SPINDLE.ASYMM_densitynum=(SPINDLE.densitynum(1:5)./SPINDLE.densitynum(6:10))
+% SPINDLE.ASYMM_MagMAx=(SPINDLE.MagMAx(1:5)./SPINDLE.MagMAx(6:10))
+% SPINDLE.ASYMM_MagMEan=(SPINDLE.MagMEan(1:5)./SPINDLE.MagMEan(6:10))
+SPINDLE.ASYMM_POWER=(SPINDLE.POWER(1:5)./SPINDLE.POWER(6:10))
+SPINDLE.ASYMM_SLOWPOWER=(SPINDLE.SLOWPOWER(1:5)./SPINDLE.SLOWPOWER(6:10))
+SPINDLE.ASYMM_FASTPOWER=(SPINDLE.FASTPOWER(1:5)./SPINDLE.FASTPOWER(6:10))
+SPINDLE.ASYMM_M_EPOCHPOWER=(SPINDLE.M_EPOCHPOWER(1:5)./SPINDLE.M_EPOCHPOWER(6:10))
+SPINDLE.ASYMM_M_EPOCHSLOWPOWER=(SPINDLE.M_EPOCHSLOWPOWER(1:5)./SPINDLE.M_EPOCHSLOWPOWER(6:10))
+SPINDLE.ASYMM_M_EPOCHFASTPOWER=(SPINDLE.M_EPOCHFASTPOWER(1:5)./SPINDLE.M_EPOCHFASTPOWER(6:10))
+% SPINDLE.ASYMM_FreqmaxEpoch=(SPINDLE.FreqmaxEpoch(1:5)./SPINDLE.FreqmaxEpoch(6:10))
+% SPINDLE.ASYMM_SLOWFreqmaxEpoch=(SPINDLE.SLOWFreqmaxEpoch(1:5)./SPINDLE.SLOWFreqmaxEpoch(6:10))
+% SPINDLE.ASYMM_FASTFreqmaxEpoch=(SPINDLE.FASTFreqmaxEpoch(1:5)./SPINDLE.FASTFreqmaxEpoch(6:10))
+% SPINDLE.ASYMM_coh=(Left_coh/Right_coh)
+SPINDLE.ASYMM_meanEPOCHPOWER=nanmean(SPINDLE.ASYMM_M_EPOCHPOWER(2:4))
+SPINDLE.ASYMM_meanSLOWEPOCHPOWER=nanmean(SPINDLE.ASYMM_M_EPOCHSLOWPOWER(2:4))
+SPINDLE.ASYMM_meanFASTEPOCHPOWER=nanmean(SPINDLE.ASYMM_M_EPOCHFASTPOWER(2:4))
+
+elseif xx == 1
+ % right lesion
+% SPINDLE.ASYMM_densitylen=(SPINDLE.densitylen(6:10)./SPINDLE.densitylen(1:5))
+% SPINDLE.ASYMM_densitynum=(SPINDLE.densitynum(6:10)./SPINDLE.densitynum(1:5))
+% SPINDLE.ASYMM_MagMAx=(SPINDLE.MagMAx(6:10)./SPINDLE.MagMAx(1:5))
+% SPINDLE.ASYMM_MagMEan=(SPINDLE.MagMEan(6:10)./SPINDLE.MagMEan(1:5))
+SPINDLE.ASYMM_POWER=(SPINDLE.POWER(6:10)./SPINDLE.POWER(1:5))
+SPINDLE.ASYMM_SLOWPOWER=(SPINDLE.SLOWPOWER(6:10)./SPINDLE.SLOWPOWER(1:5))
+SPINDLE.ASYMM_FASTPOWER=(SPINDLE.FASTPOWER(6:10)./SPINDLE.FASTPOWER(1:5))
+SPINDLE.ASYMM_M_EPOCHPOWER=(SPINDLE.M_EPOCHPOWER(6:10)./SPINDLE.M_EPOCHPOWER(1:5))
+SPINDLE.ASYMM_M_EPOCHSLOWPOWER=(SPINDLE.M_EPOCHSLOWPOWER(6:10)./SPINDLE.M_EPOCHSLOWPOWER(1:5))
+SPINDLE.ASYMM_M_EPOCHFASTPOWER=(SPINDLE.M_EPOCHFASTPOWER(6:10)./SPINDLE.M_EPOCHFASTPOWER(1:5))
+% SPINDLE.ASYMM_FreqmaxEpoch=(SPINDLE.FreqmaxEpoch(6:10)./SPINDLE.FreqmaxEpoch(1:5))
+% SPINDLE.ASYMM_SLOWFreqmaxEpoch=(SPINDLE.SLOWFreqmaxEpoch(6:10)./SPINDLE.SLOWFreqmaxEpoch(1:5))
+% SPINDLE.ASYMM_FASTFreqmaxEpoch=(SPINDLE.FASTFreqmaxEpoch(6:10)./SPINDLE.FASTFreqmaxEpoch(1:5))
+% SPINDLE.ASYMM_coh=(Right_coh/Left_coh)
+SPINDLE.ASYMM_meanEPOCHPOWER=nanmean(SPINDLE.ASYMM_M_EPOCHPOWER(2:4))
+SPINDLE.ASYMM_meanSLOWEPOCHPOWER=nanmean(SPINDLE.ASYMM_M_EPOCHSLOWPOWER(2:4))
+SPINDLE.ASYMM_meanFASTEPOCHPOWER=nanmean(SPINDLE.ASYMM_M_EPOCHFASTPOWER(2:4))
+end
+%
+B = {'FC'; 'FT'; 'CT'; 'CO'; 'TO'}
+
+% ASIResult = sprintf('ASI_output%s.csv', FileName);
+fid = fopen([PN 'ASYMMResult.csv'], 'a');
+
+fprintf(fid,'\n');
+fprintf(fid, ' ');
+
+%        for kk = 1:size(B, 1)
+%             fprintf(fid,';%s',[ B{kk,1} '_ASYMMdensitylen']);
+%        end
+%          
+%        for kk = 1:size(B, 1)
+%             fprintf(fid,';%s',[ B{kk,1} '_ASYMMdensitynum']);
+%        end
+%        
+%          for kk = 1:size(B, 1);
+%             fprintf(fid,';%s',[ B{kk,1} '_ASYMMMagMax']);
+%          end
+%          
+%          for kk = 1:size(B, 1);
+%             fprintf(fid,';%s',[ B{kk,1} '_ASYMMMagMean']);
+%          end
+       
+          for kk = 1:size(B, 1);
+            fprintf(fid,';%s',[ B{kk,1} '_ASYMMPOWER']);
+          end
+          
+          for kk = 1:size(B, 1);
+            fprintf(fid,';%s',[ B{kk,1} '_ASYMMSLOWPOWER']);
+          end
+         
+          for kk = 1:size(B, 1);
+            fprintf(fid,';%s',[ B{kk,1} '_ASYMMFASTPOWER']);
+          end
+         
+         for kk = 1:size(B, 1);
+            fprintf(fid,';%s',[ B{kk,1} '_ASYMMEPOCHPOWER']);
+         end
+         
+            for kk = 1:size(B, 1);
+            fprintf(fid,';%s',[ B{kk,1} '_ASYMMEPOCHSLOWPOWER']);
+          end
+         
+          for kk = 1:size(B, 1);
+            fprintf(fid,';%s',[ B{kk,1} '_ASYMMEPOCHFASTPOWER']);
+          end
+         
+%            for kk = 1:size(B, 1);
+%             fprintf(fid,';%s',[ B{kk,1} '_ASYMMFreqmaxEpoch']);
+%            end
+%           
+%            for kk = 1:size(B, 1);
+%             fprintf(fid,';%s',[ B{kk,1} '_ASYMMSLOWFreqmaxEpoch']);
+%            end
+%            
+%            for kk = 1:size(B, 1);
+%             fprintf(fid,';%s',[ B{kk,1} '_ASYMMFASTreqmaxEpoch']);
+%            end
+     
+%            fprintf(fid,';%s','ASYMM_Coherence');
+           fprintf(fid,';%s','ASYMM_EPOCHPOWER');
+           fprintf(fid,';%s','ASYMM_SLOWEPOCHPOWER');
+           fprintf(fid,';%s','ASYMM_FASTEPOCHPOWER');
+
+        fprintf(fid,'\n');
+     fprintf(fid,FileName);
+%      fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_densitylen)])],SPINDLE.ASYMM_densitylen);
+%      fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_densitynum)])],SPINDLE.ASYMM_densitynum);
+%      fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_MagMAx)])],SPINDLE.ASYMM_MagMAx);
+%      fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_MagMEan)])],SPINDLE.ASYMM_MagMEan);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_POWER)])],SPINDLE.ASYMM_POWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_SLOWPOWER)])],SPINDLE.ASYMM_SLOWPOWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_FASTPOWER)])],SPINDLE.ASYMM_FASTPOWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_M_EPOCHPOWER)])],SPINDLE.ASYMM_M_EPOCHPOWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_M_EPOCHSLOWPOWER)])],SPINDLE.ASYMM_M_EPOCHSLOWPOWER);
+     fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_M_EPOCHFASTPOWER)])],SPINDLE.ASYMM_M_EPOCHFASTPOWER);
+%      fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_FreqmaxEpoch)])],SPINDLE.ASYMM_FreqmaxEpoch);
+%      fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_SLOWFreqmaxEpoch)])],SPINDLE.ASYMM_SLOWFreqmaxEpoch);
+%      fprintf(fid,[repmat(';%f',[1 size(SPINDLE.ASYMM_FASTFreqmaxEpoch)])],SPINDLE.ASYMM_FASTFreqmaxEpoch);
+%      fprintf(fid,[repmat(';%f',1)],SPINDLE.ASYMM_coh);
+     fprintf(fid,[repmat(';%f',1)],SPINDLE.ASYMM_meanEPOCHPOWER);
+     fprintf(fid,[repmat(';%f',1)],SPINDLE.ASYMM_meanSLOWEPOCHPOWER);
+     fprintf(fid,[repmat(';%f',1)],SPINDLE.ASYMM_meanFASTEPOCHPOWER);
+ fclose(fid);
+ %
+ clearvars -except FN PN
+ else  clearvars -except FN PN
+ end
+  end
